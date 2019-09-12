@@ -2,25 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="db7a679b-0eca-4ad6-83c8-ba546422d592" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/filldatabase.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/1011.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/1013.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/1013.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/1021.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/1022.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/1023.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/1025.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/1025.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/1026.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/1026.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/276.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/276.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/725.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/725.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/926.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/926.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/936.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/936.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/940.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/942.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/989.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/989.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/994.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/merged_file.json" beforeDir="false" afterPath="$PROJECT_DIR$/merged_file.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/filldatabase.py" beforeDir="false" afterPath="$PROJECT_DIR$/filldatabase.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -182,6 +165,14 @@
       <option name="presentableId" value="Default" />
       <updated>1567033305430</updated>
     </task>
+    <task id="LOCAL-00001" summary="basic database dumping">
+      <created>1568245600999</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1568245600999</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -196,6 +187,10 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="basic database dumping" />
+    <option name="LAST_COMMIT_MESSAGE" value="basic database dumping" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
