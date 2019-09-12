@@ -1,6 +1,4 @@
 import json
-from errno import errorcode
-
 import mysql.connector
 
 
@@ -114,3 +112,5 @@ with open('merged_file.json') as json_file:
                 cursor.execute(sql, values)
 
     database.commit()
+    cursor.close()
+    database.close()
