@@ -51,20 +51,23 @@ def clear_tables(input_cursor):
 
     input_cursor.execute("DROP TABLE IF EXISTS upgrades")
     input_cursor.execute("CREATE TABLE upgrades ("
-                         "id INT AUTO_INCREMENT PRIMARY KEY, "
+                         "entry_id INT AUTO_INCREMENT PRIMARY KEY, "
                          "pilot_id INT,"
                          "upgrade_id INT)")
 
     input_cursor.execute("DROP TABLE IF EXISTS matches")
     input_cursor.execute("CREATE TABLE matches ("
                          "match_id INT AUTO_INCREMENT PRIMARY KEY,"
-                         "player1_id INT,"
-                         "player1_points INT,"
-                         "player2_id INT,"
-                         "player2_points INT,"
                          "winner_id INT,"
                          "type INT,"
                          "date DATE)")
+
+    input_cursor.execute("DROP TABLE IF EXISTS matches_players")
+    input_cursor.execute("CREATE TABLE matches_players ("
+                         "entry_id INT AUTO_INCREMENT PRIMARY KEY,"
+                         "match_id INT,"
+                         "player_id INT,"
+                         "player_points INT)")
 
     input_cursor.execute("DROP TABLE IF EXISTS faction_ref")
     input_cursor.execute("CREATE TABLE faction_ref ("
@@ -237,19 +240,25 @@ def update_tables(pilots, upgrades, factions, filename):
             for rounds in tournament['rounds']:
                 for match in rounds['matches']:
                     match_id = match['id']
-                    player1_id = match['player1_id']
-                    player1_points = match['player1_points']
-                    player2_id = match['player2_id']
-                    player2_points = match['player2_points']
                     winner_id = match['winner_id']
                     match_type = rounds['roundtype_id']
                     date = tournament['date']
 
-                    sql = "INSERT INTO matches (match_id, player1_id, player1_points, player2_id, player2_points, " \
-                          "winner_id, type, date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
-                    values = (
-                        match_id, player1_id, player1_points, player2_id, player2_points, winner_id, match_type, date)
+                    sql = "INSERT INTO matches (match_id, winner_id, type, date) VALUES (%s, %s, %s, %s) "
+                    values = (match_id, winner_id, match_type, date)
                     cursor.execute(sql, values)
+
+                    player1_id = match['player1_id']
+                    player1_points = match['player1_points']
+                    player1_sql = "INSERT INTO matches_players (match_id, player_id, player_points) VALUES (%s, %s, %s)"
+                    player1_values = (match_id, player1_id, player1_points)
+                    cursor.execute(player1_sql, player1_values)
+
+                    player2_id = match['player2_id']
+                    player2_points = match['player2_points']
+                    player2_sql = "INSERT INTO matches_players (match_id, player_id, player_points) VALUES (%s, %s, %s)"
+                    player2_values = (match_id, player2_id, player2_points)
+                    cursor.execute(player2_sql, player2_values)
 
 
 database = mysql.connector.connect(
