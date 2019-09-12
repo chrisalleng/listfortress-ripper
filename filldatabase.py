@@ -3,6 +3,35 @@ import mysql.connector
 import requests
 
 
+def clean_pilot_xws(pilot_xws):
+    if pilot_xws == "niennumb-t70xwing":
+        pilot_xws = "niennunb"
+    elif pilot_xws == "oddballarc170":
+        pilot_xws = "oddball-arc170starfighter"
+    elif pilot_xws == "ricolie-nabooroyaln1starfighter":
+        pilot_xws = "ricolie"
+
+    return pilot_xws
+
+
+def clean_upgrade_xws(upgrade_xws):
+    if upgrade_xws == "hardpointcannon":
+        upgrade_xws = "skip"
+    elif upgrade_xws == "hardpointmissile":
+        upgrade_xws = "skip"
+    elif upgrade_xws == "hardpointtorpedo":
+        upgrade_xws = "skip"
+    elif upgrade_xws == "reysmilleniumfalcon":
+        upgrade_xws = "reysmillenniumfalcon"
+    elif upgrade_xws == "rey":
+        upgrade_xws = "rey-gunner"
+    elif upgrade_xws == "chewbaccaresistance":
+        upgrade_xws = "chewbacca-crew-swz19"
+    elif upgrade_xws == "leiaorganaresistance":
+        upgrade_xws = "leiaorgana-resistance"
+    return upgrade_xws
+
+
 def clear_tables(input_cursor):
     input_cursor.execute("DROP TABLE IF EXISTS players")
     input_cursor.execute("CREATE TABLE players ("
@@ -22,9 +51,9 @@ def clear_tables(input_cursor):
 
     input_cursor.execute("DROP TABLE IF EXISTS upgrades")
     input_cursor.execute("CREATE TABLE upgrades ("
-                         "upgrade_id INT AUTO_INCREMENT PRIMARY KEY, "
+                         "id INT AUTO_INCREMENT PRIMARY KEY, "
                          "pilot_id INT,"
-                         "upgrade VARCHAR(255))")
+                         "upgrade_id INT)")
 
     input_cursor.execute("DROP TABLE IF EXISTS matches")
     input_cursor.execute("CREATE TABLE matches ("
@@ -78,11 +107,14 @@ def get_ref_data():
     ships = {}
     pilots = {}
     upgrades = {}
+    pilot_id = 0
+    upgrade_id = 0
 
     for parsed_pilot in parsed_pilots:
         pilot_name = parsed_pilot['name']
         pilot_xws = parsed_pilot['xws']
         pilot_cost = parsed_pilot['cost']
+        pilot_id = pilot_id + 1
         if pilot_cost == "???":
             continue
         pilot_initiative = parsed_pilot['initiative']
@@ -90,11 +122,12 @@ def get_ref_data():
 
         if ship not in ships:
             ships[ship] = (ship, len(ships) + 1)
-        pilots[pilot_xws] = (pilot_name, pilot_xws, pilot_cost, pilot_initiative, ships[ship][1])
+        pilots[pilot_xws] = (pilot_name, pilot_xws, pilot_cost, pilot_initiative, ships[ship][1], pilot_id)
 
     for parsed_upgrade in parsed_upgrades:
         upgrade_name = parsed_upgrade['name']
         upgrade_xws = parsed_upgrade['xws']
+        upgrade_id = upgrade_id + 1
         if 'cost' in parsed_upgrade:
             if parsed_upgrade['cost']['variable'] == "None":
                 upgrade_cost = parsed_upgrade['cost']['value']
@@ -109,12 +142,45 @@ def get_ref_data():
         else:
             upgrade_cost = 0
 
-        upgrades[upgrade_name] = (upgrade_name, upgrade_xws, upgrade_cost)
+        upgrades[upgrade_xws] = (upgrade_name, upgrade_xws, upgrade_cost, upgrade_id)
 
-    return ships, pilots, upgrades
+    for pilot in pilots.items():
+        pilot = pilot[1]
+        sql = "INSERT INTO pilot_ref (name, xws, cost, initiative, ship_id, pilot_id ) " \
+              " VALUES (%s, %s, %s, %s, %s, %s) "
+        cursor.execute(sql, pilot)
+
+    for ship in ships.items():
+        ship = ship[1]
+        sql = "INSERT INTO ship_ref (ship_name, ship_id ) " \
+              " VALUES (%s, %s) "
+        cursor.execute(sql, ship)
+
+    for upgrade in upgrades.items():
+        upgrade = upgrade[1]
+        sql = "INSERT INTO upgrade_ref (name, xws, cost, upgrade_id ) " \
+              " VALUES (%s, %s, %s, %s) "
+        cursor.execute(sql, upgrade)
+
+    faction_sql = "INSERT INTO faction_ref (faction_id, name, xws) VALUES (%s, %s, %s)"
+    factions_values = [(1, "Rebel Alliance", "rebelalliance"),
+                (2, "Galactic Empire", "galacticempire"),
+                (3, "Scum And Villainy", "scumandvillainy"),
+                (4, "Resistance", "resistance"),
+                (5, "First Order", "firstorder"),
+                (6, "Galactic Republic", "galacticrepublic"),
+                (7, "Separatist Alliance", "separatistalliance")]
+    cursor.executemany(faction_sql, factions_values)
+
+    factions = {
+    }
+
+    for faction_value in factions_values:
+        factions[faction_value[2]] = factions_values[0]
+    return ships, pilots, upgrades, factions
 
 
-def update_tables(filename):
+def update_tables(pilots, upgrades, factions, filename):
     with open(filename) as json_file:
         data = json.load(json_file)
         for tournament in data:
@@ -127,7 +193,7 @@ def update_tables(filename):
                         continue
                     if 'points' in player_list and player_list['points'] is not None and player_list['points'] is not 0:
                         player_id = player['id']
-                        faction = player_list['faction']
+                        faction = factions[player_list['faction']][0]
                         points = player_list['points']
                         event_players = len(tournament['participants'])
                         event_format = tournament['format_id']
@@ -145,11 +211,12 @@ def update_tables(filename):
 
                         # Insert Pilots
                         for pilot in player_list['pilots']:
-                            pilot_id = pilot['id']
+                            xws = pilot['id']
+                            xws = clean_pilot_xws(xws)
+                            pilot_id = pilots[xws][5]
                             sql = "INSERT INTO pilots (player_id, pilot) VALUES (%s, %s) "
                             values = (player_id, pilot_id)
                             cursor.execute(sql, values)
-                            pilot_id = cursor.lastrowid
 
                             if 'upgrades' in pilot and len(pilot['upgrades']) > 0:
 
@@ -158,8 +225,12 @@ def update_tables(filename):
                                 for key, value in pilot_upgrades:
                                     upgrade_list = value
                                     for upgrade in upgrade_list:
-                                        sql = "INSERT INTO upgrades (pilot_id, upgrade) VALUES (%s, %s) "
-                                        values = (pilot_id, upgrade)
+                                        sql = "INSERT INTO upgrades (pilot_id, upgrade_id) VALUES (%s, %s) "
+                                        upgrade = clean_upgrade_xws(upgrade)
+                                        if upgrade == "skip":
+                                            continue
+                                        upgrade_id = upgrades[upgrade][3]
+                                        values = (pilot_id, upgrade_id)
                                         cursor.execute(sql, values)
 
             # Insert all matches
@@ -190,37 +261,8 @@ database = mysql.connector.connect(
 )
 cursor = database.cursor()
 clear_tables(cursor)
-ref_ships, ref_pilots, ref_upgrades = get_ref_data()
-
-for ref_pilot in ref_pilots.items():
-    ref_pilot = ref_pilot[1]
-    sql = "INSERT INTO pilot_ref (name, xws, cost, initiative, ship_id ) " \
-        " VALUES (%s, %s, %s, %s, %s) "
-    cursor.execute(sql, ref_pilot)
-
-for ref_ship in ref_ships.items():
-    ref_ship = ref_ship[1]
-    sql = "INSERT INTO ship_ref (ship_name, ship_id ) " \
-          " VALUES (%s, %s) "
-    cursor.execute(sql, ref_ship)
-
-for ref_upgrade in ref_upgrades.items():
-    ref_upgrade = ref_upgrade[1]
-    sql = "INSERT INTO upgrade_ref (name, xws, cost ) " \
-          " VALUES (%s, %s, %s) "
-    cursor.execute(sql, ref_upgrade)
-
-faction_sql = "INSERT INTO faction_ref (faction_id, name, xws) VALUES (%s, %s, %s)"
-factions = [(1, "Rebel Alliance", "rebelalliance"),
-            (2, "Galactic Empire", "galacticempire"),
-            (3, "Scum And Villainy", "scumandvillainy"),
-            (4, "Resistance", "resistance"),
-            (5, "First Order", "firstorder"),
-            (6, "Galactic Republic", "galacticrepublic"),
-            (7, "Separatist Aliiance", "separatistalliance")]
-cursor.executemany(faction_sql, factions)
-
-update_tables('merged_file.json')
+ref_ships, ref_pilots, ref_upgrades, ref_factions = get_ref_data()
+update_tables(ref_pilots, ref_upgrades, ref_factions, 'merged_file.json')
 database.commit()
 cursor.close()
 database.close()
