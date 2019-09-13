@@ -47,13 +47,14 @@ def clear_tables(input_cursor):
     input_cursor.execute("CREATE TABLE pilots ("
                          "pilot_id INT AUTO_INCREMENT PRIMARY KEY, "
                          "player_id INT,"
-                         "pilot VARCHAR(255))")
+                         "points INT,"
+                         "ref_pilot_id VARCHAR(255))")
 
     input_cursor.execute("DROP TABLE IF EXISTS upgrades")
     input_cursor.execute("CREATE TABLE upgrades ("
-                         "entry_id INT AUTO_INCREMENT PRIMARY KEY, "
+                         "upgrade_id INT AUTO_INCREMENT PRIMARY KEY, "
                          "pilot_id INT,"
-                         "upgrade_id INT)")
+                         "ref_upgrade_id INT)")
 
     input_cursor.execute("DROP TABLE IF EXISTS matches")
     input_cursor.execute("CREATE TABLE matches ("
@@ -69,19 +70,19 @@ def clear_tables(input_cursor):
                          "player_id INT,"
                          "player_points INT)")
 
-    input_cursor.execute("DROP TABLE IF EXISTS faction_ref")
-    input_cursor.execute("CREATE TABLE faction_ref ("
+    input_cursor.execute("DROP TABLE IF EXISTS ref_faction")
+    input_cursor.execute("CREATE TABLE ref_faction ("
                          "faction_id INT AUTO_INCREMENT PRIMARY KEY,"
                          "name VARCHAR(255), "
                          "xws VARCHAR(255))")
 
-    input_cursor.execute("DROP TABLE IF EXISTS ship_ref")
-    input_cursor.execute("CREATE TABLE ship_ref ("
+    input_cursor.execute("DROP TABLE IF EXISTS ref_ship")
+    input_cursor.execute("CREATE TABLE ref_ship ("
                          "ship_id INT AUTO_INCREMENT PRIMARY KEY,"
                          "ship_name VARCHAR(255))")
 
-    input_cursor.execute("DROP TABLE IF EXISTS pilot_ref")
-    input_cursor.execute("CREATE TABLE pilot_ref ("
+    input_cursor.execute("DROP TABLE IF EXISTS ref_pilot")
+    input_cursor.execute("CREATE TABLE ref_pilot ("
                          "pilot_id INT AUTO_INCREMENT PRIMARY KEY,"
                          "name VARCHAR(255), "
                          "cost INT,"
@@ -89,8 +90,8 @@ def clear_tables(input_cursor):
                          "initiative INT,"
                          "xws VARCHAR(255))")
 
-    input_cursor.execute("DROP TABLE IF EXISTS upgrade_ref")
-    input_cursor.execute("CREATE TABLE upgrade_ref ("
+    input_cursor.execute("DROP TABLE IF EXISTS ref_upgrade")
+    input_cursor.execute("CREATE TABLE ref_upgrade ("
                          "upgrade_id INT AUTO_INCREMENT PRIMARY KEY,"
                          "name VARCHAR(255), "
                          "cost INT,"
@@ -149,23 +150,23 @@ def get_ref_data():
 
     for pilot in pilots.items():
         pilot = pilot[1]
-        sql = "INSERT INTO pilot_ref (name, xws, cost, initiative, ship_id, pilot_id ) " \
+        sql = "INSERT INTO ref_pilot (name, xws, cost, initiative, ship_id, pilot_id ) " \
               " VALUES (%s, %s, %s, %s, %s, %s) "
         cursor.execute(sql, pilot)
 
     for ship in ships.items():
         ship = ship[1]
-        sql = "INSERT INTO ship_ref (ship_name, ship_id ) " \
+        sql = "INSERT INTO ref_ship (ship_name, ship_id ) " \
               " VALUES (%s, %s) "
         cursor.execute(sql, ship)
 
     for upgrade in upgrades.items():
         upgrade = upgrade[1]
-        sql = "INSERT INTO upgrade_ref (name, xws, cost, upgrade_id ) " \
+        sql = "INSERT INTO ref_upgrade (name, xws, cost, upgrade_id ) " \
               " VALUES (%s, %s, %s, %s) "
         cursor.execute(sql, upgrade)
 
-    faction_sql = "INSERT INTO faction_ref (faction_id, name, xws) VALUES (%s, %s, %s)"
+    faction_sql = "INSERT INTO ref_faction (faction_id, name, xws) VALUES (%s, %s, %s)"
     factions_values = [(1, "Rebel Alliance", "rebelalliance"),
                 (2, "Galactic Empire", "galacticempire"),
                 (3, "Scum And Villainy", "scumandvillainy"),
@@ -216,10 +217,15 @@ def update_tables(pilots, upgrades, factions, filename):
                         for pilot in player_list['pilots']:
                             xws = pilot['id']
                             xws = clean_pilot_xws(xws)
-                            pilot_id = pilots[xws][5]
-                            sql = "INSERT INTO pilots (player_id, pilot) VALUES (%s, %s) "
-                            values = (player_id, pilot_id)
+                            ref_pilot_id = pilots[xws][5]
+                            if 'points' in pilot:
+                                points = pilot['points']
+                            else:
+                                points = 201
+                            sql = "INSERT INTO pilots (player_id, ref_pilot_id, points) VALUES (%s, %s, %s) "
+                            values = (player_id, ref_pilot_id, points)
                             cursor.execute(sql, values)
+                            pilot_id = cursor.lastrowid
 
                             if 'upgrades' in pilot and len(pilot['upgrades']) > 0:
 
@@ -228,7 +234,7 @@ def update_tables(pilots, upgrades, factions, filename):
                                 for key, value in pilot_upgrades:
                                     upgrade_list = value
                                     for upgrade in upgrade_list:
-                                        sql = "INSERT INTO upgrades (pilot_id, upgrade_id) VALUES (%s, %s) "
+                                        sql = "INSERT INTO upgrades (pilot_id, ref_upgrade_id) VALUES (%s, %s) "
                                         upgrade = clean_upgrade_xws(upgrade)
                                         if upgrade == "skip":
                                             continue
