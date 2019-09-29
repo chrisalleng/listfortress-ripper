@@ -147,24 +147,29 @@ def get_ref_data():
             upgrade_cost = 0
 
         upgrades[upgrade_xws] = (upgrade_name, upgrade_xws, upgrade_cost, upgrade_id)
-
+    all_ref_pilots = []
     for pilot in pilots.items():
         pilot = pilot[1]
-        sql = "INSERT INTO ref_pilot (name, xws, cost, initiative, ship_id, pilot_id ) " \
-              " VALUES (%s, %s, %s, %s, %s, %s) "
-        cursor.execute(sql, pilot)
+        all_ref_pilots.append(pilot)
+    sql = "INSERT INTO ref_pilot (name, xws, cost, initiative, ship_id, pilot_id) " \
+          " VALUES (%s, %s, %s, %s, %s, %s) "
+    cursor.executemany(sql, all_ref_pilots)
 
+    all_ref_ships = []
     for ship in ships.items():
         ship = ship[1]
-        sql = "INSERT INTO ref_ship (ship_name, ship_id ) " \
-              " VALUES (%s, %s) "
-        cursor.execute(sql, ship)
+        all_ref_ships.append(ship)
+    sql = "INSERT INTO ref_ship (ship_name, ship_id) " \
+          " VALUES (%s, %s) "
+    cursor.executemany(sql, all_ref_ships)
 
+    all_ref_upgrades = []
     for upgrade in upgrades.items():
         upgrade = upgrade[1]
-        sql = "INSERT INTO ref_upgrade (name, xws, cost, upgrade_id ) " \
-              " VALUES (%s, %s, %s, %s) "
-        cursor.execute(sql, upgrade)
+        all_ref_upgrades.append(upgrade)
+    sql = "INSERT INTO ref_upgrade (name, xws, cost, upgrade_id) " \
+          " VALUES (%s, %s, %s, %s) "
+    cursor.executemany(sql, all_ref_upgrades)
 
     faction_sql = "INSERT INTO ref_faction (faction_id, name, xws) VALUES (%s, %s, %s)"
     factions_values = [(1, "Rebel Alliance", "rebelalliance"),
@@ -187,6 +192,11 @@ def get_ref_data():
 def update_tables(pilots, upgrades, factions, filename):
     with open(filename) as json_file:
         data = json.load(json_file)
+        all_pilots = []
+        all_upgrades = []
+        all_matches = []
+        all_players = []
+        pilot_id = 0
         for tournament in data:
             # Insert Players
             for player in tournament['participants']:
@@ -222,55 +232,60 @@ def update_tables(pilots, upgrades, factions, filename):
                                 points = pilot['points']
                             else:
                                 points = 201
-                            sql = "INSERT INTO pilots (player_id, ref_pilot_id, points) VALUES (%s, %s, %s) "
-                            values = (player_id, ref_pilot_id, points)
-                            cursor.execute(sql, values)
-                            pilot_id = cursor.lastrowid
+                            pilot_id = pilot_id + 1
+                            current_pilot = (player_id, ref_pilot_id, points)
+                            all_pilots.append(current_pilot)
 
                             if 'upgrades' in pilot and len(pilot['upgrades']) > 0:
-
                                 # Insert Upgrade
                                 pilot_upgrades = pilot['upgrades'].items()
                                 for key, value in pilot_upgrades:
                                     upgrade_list = value
                                     for upgrade in upgrade_list:
-                                        sql = "INSERT INTO upgrades (pilot_id, ref_upgrade_id) VALUES (%s, %s) "
                                         upgrade = clean_upgrade_xws(upgrade)
                                         if upgrade == "skip":
                                             continue
                                         upgrade_id = upgrades[upgrade][3]
-                                        values = (pilot_id, upgrade_id)
-                                        cursor.execute(sql, values)
-
+                                        current_upgrade = (pilot_id, upgrade_id)
+                                        all_upgrades.append(current_upgrade)
             # Insert all matches
+
             for rounds in tournament['rounds']:
                 for match in rounds['matches']:
                     match_id = match['id']
                     winner_id = match['winner_id']
                     match_type = rounds['roundtype_id']
                     date = tournament['date']
-
-                    sql = "INSERT INTO matches (match_id, winner_id, type, date) VALUES (%s, %s, %s, %s) "
-                    values = (match_id, winner_id, match_type, date)
-                    cursor.execute(sql, values)
+                    current_match = (match_id, winner_id, match_type, date)
+                    all_matches.append(current_match)
 
                     player1_id = match['player1_id']
                     player1_points = match['player1_points']
-                    player1_sql = "INSERT INTO matches_players (match_id, player_id, player_points) VALUES (%s, %s, %s)"
-                    player1_values = (match_id, player1_id, player1_points)
-                    cursor.execute(player1_sql, player1_values)
+                    current_player = (match_id, player1_id, player1_points)
+                    all_players.append(current_player)
 
                     player2_id = match['player2_id']
                     player2_points = match['player2_points']
-                    player2_sql = "INSERT INTO matches_players (match_id, player_id, player_points) VALUES (%s, %s, %s)"
-                    player2_values = (match_id, player2_id, player2_points)
-                    cursor.execute(player2_sql, player2_values)
+                    current_player = (match_id, player2_id, player2_points)
+                    all_players.append(current_player)
+
+        sql = "INSERT INTO matches (match_id, winner_id, type, date) VALUES (%s, %s, %s, %s) "
+        cursor.executemany(sql, all_matches)
+
+        player_sql = "INSERT INTO matches_players (match_id, player_id, player_points) VALUES (%s, %s, %s)"
+        cursor.executemany(player_sql, all_players)
+
+        sql = "INSERT INTO upgrades (pilot_id, ref_upgrade_id) VALUES (%s, %s) "
+        cursor.executemany(sql, all_upgrades)
+
+        sql = "INSERT INTO pilots (player_id, ref_pilot_id, points) VALUES (%s, %s, %s) "
+        cursor.executemany(sql, all_pilots)
 
 
 database = mysql.connector.connect(
-    host="localhost",
-    user="listfortress_ripper",
-    password="password",
+    host="xwing.gateofstorms.net",
+    user="brunas",
+    password="scpLVgtx",
     database="listfortress",
     auth_plugin='mysql_native_password'
 )
