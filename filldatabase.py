@@ -73,6 +73,7 @@ def clear_tables(input_cursor):
     input_cursor.execute("CREATE TABLE tournaments ("
                          "tournament_id INT AUTO_INCREMENT PRIMARY KEY,"
                          "players INT, "
+                         "date DATE,"
                          "format INT)")
 
     input_cursor.execute("CREATE TABLE players ("
@@ -104,7 +105,6 @@ def clear_tables(input_cursor):
                          "match_id INT AUTO_INCREMENT PRIMARY KEY,"
                          "winner_id INT,"
                          "type INT,"
-                         "date DATE,"
                          "FOREIGN KEY(winner_id) REFERENCES players(player_id))")
 
     input_cursor.execute("CREATE TABLE matches_players ("
@@ -221,10 +221,11 @@ def update_tables(pilots, upgrades, factions, filename):
         pilot_id = 0
         for tournament in data:
             # Get Tournaments
+            date = tournament['date']
             tournament_id = tournament['id']
             tournament_player_count = len(tournament['participants'])
             tournament_format = tournament['format_id']
-            all_tournaments.append((tournament_id, tournament_player_count, tournament_format))
+            all_tournaments.append((tournament_id, tournament_player_count, date, tournament_format))
 
             # Get Players
             for player in tournament['participants']:
@@ -285,8 +286,7 @@ def update_tables(pilots, upgrades, factions, filename):
                     match_id = match['id']
                     winner_id = match['winner_id']
                     match_type = rounds['roundtype_id']
-                    date = tournament['date']
-                    current_match = (match_id, winner_id, match_type, date)
+                    current_match = (match_id, winner_id, match_type)
                     all_matches.append(current_match)
 
                     player1_id = match['player1_id']
@@ -299,14 +299,14 @@ def update_tables(pilots, upgrades, factions, filename):
                     current_player = (match_id, player2_id, player2_points)
                     all_players_matches.append(current_player)
 
-        sql = "INSERT INTO tournaments (tournament_id, players, format) VALUES (%s, %s, %s) "
+        sql = "INSERT INTO tournaments (tournament_id, players, date, format) VALUES (%s, %s, %s, %s) "
         cursor.executemany(sql, all_tournaments)
 
         sql = "INSERT INTO players (player_id, tournament_id, faction, points,  swiss_standing, cut_standing) " \
               "VALUES (%s, %s, %s, %s, %s, %s) "
         cursor.executemany(sql, all_players)
 
-        sql = "INSERT INTO matches (match_id, winner_id, type, date) VALUES (%s, %s, %s, %s) "
+        sql = "INSERT INTO matches (match_id, winner_id, type) VALUES (%s, %s, %s) "
         cursor.executemany(sql, all_matches)
 
         player_sql = "INSERT INTO matches_players (match_id, player_id, player_points) VALUES (%s, %s, %s)"
