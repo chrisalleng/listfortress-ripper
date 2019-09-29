@@ -10,6 +10,8 @@ def clean_pilot_xws(pilot_xws):
         pilot_xws = "oddball-arc170starfighter"
     elif pilot_xws == "ricolie-nabooroyaln1starfighter":
         pilot_xws = "ricolie"
+    elif pilot_xws == "anakinskywalkerywing":
+        pilot_xws = "anakinskywalker-btlbywing"
 
     return pilot_xws
 
@@ -33,69 +35,85 @@ def clean_upgrade_xws(upgrade_xws):
 
 
 def clear_tables(input_cursor):
-    input_cursor.execute("DROP TABLE IF EXISTS players")
-    input_cursor.execute("CREATE TABLE players ("
-                         "player_id INT AUTO_INCREMENT PRIMARY KEY, "
-                         "faction VARCHAR(255), "
-                         "points INT, "
-                         "event_players INT, "
-                         "event_format INT, "
-                         "swiss_standing INT, "
-                         "cut_standing INT)")
-
-    input_cursor.execute("DROP TABLE IF EXISTS pilots")
-    input_cursor.execute("CREATE TABLE pilots ("
-                         "pilot_id INT AUTO_INCREMENT PRIMARY KEY, "
-                         "player_id INT,"
-                         "points INT,"
-                         "ref_pilot_id VARCHAR(255))")
-
-    input_cursor.execute("DROP TABLE IF EXISTS upgrades")
-    input_cursor.execute("CREATE TABLE upgrades ("
-                         "upgrade_id INT AUTO_INCREMENT PRIMARY KEY, "
-                         "pilot_id INT,"
-                         "ref_upgrade_id INT)")
-
-    input_cursor.execute("DROP TABLE IF EXISTS matches")
-    input_cursor.execute("CREATE TABLE matches ("
-                         "match_id INT AUTO_INCREMENT PRIMARY KEY,"
-                         "winner_id INT,"
-                         "type INT,"
-                         "date DATE)")
-
     input_cursor.execute("DROP TABLE IF EXISTS matches_players")
-    input_cursor.execute("CREATE TABLE matches_players ("
-                         "entry_id INT AUTO_INCREMENT PRIMARY KEY,"
-                         "match_id INT,"
-                         "player_id INT,"
-                         "player_points INT)")
-
+    input_cursor.execute("DROP TABLE IF EXISTS matches")
+    input_cursor.execute("DROP TABLE IF EXISTS upgrades")
+    input_cursor.execute("DROP TABLE IF EXISTS pilots")
+    input_cursor.execute("DROP TABLE IF EXISTS players")
+    input_cursor.execute("DROP TABLE IF EXISTS tournaments")
+    input_cursor.execute("DROP TABLE IF EXISTS ref_pilot")
+    input_cursor.execute("DROP TABLE IF EXISTS ref_ship")
+    input_cursor.execute("DROP TABLE IF EXISTS ref_upgrade")
     input_cursor.execute("DROP TABLE IF EXISTS ref_faction")
+
+    input_cursor.execute("CREATE TABLE ref_ship ("
+                         "ship_id INT AUTO_INCREMENT PRIMARY KEY,"
+                         "ship_name VARCHAR(255))")
+
+    input_cursor.execute("CREATE TABLE ref_pilot ("
+                         "ref_pilot_id INT AUTO_INCREMENT PRIMARY KEY,"
+                         "ship_id INT,"
+                         "name VARCHAR(255), "
+                         "cost INT,"
+                         "initiative INT,"
+                         "xws VARCHAR(255),"
+                         "FOREIGN KEY(ship_id) REFERENCES ref_ship(ship_id))")
+
+    input_cursor.execute("CREATE TABLE ref_upgrade ("
+                         "ref_upgrade_id INT AUTO_INCREMENT PRIMARY KEY,"
+                         "name VARCHAR(255), "
+                         "cost INT,"
+                         "xws VARCHAR(255))")
+
     input_cursor.execute("CREATE TABLE ref_faction ("
                          "faction_id INT AUTO_INCREMENT PRIMARY KEY,"
                          "name VARCHAR(255), "
                          "xws VARCHAR(255))")
 
-    input_cursor.execute("DROP TABLE IF EXISTS ref_ship")
-    input_cursor.execute("CREATE TABLE ref_ship ("
-                         "ship_id INT AUTO_INCREMENT PRIMARY KEY,"
-                         "ship_name VARCHAR(255))")
+    input_cursor.execute("CREATE TABLE tournaments ("
+                         "tournament_id INT AUTO_INCREMENT PRIMARY KEY,"
+                         "players INT, "
+                         "format INT)")
 
-    input_cursor.execute("DROP TABLE IF EXISTS ref_pilot")
-    input_cursor.execute("CREATE TABLE ref_pilot ("
-                         "pilot_id INT AUTO_INCREMENT PRIMARY KEY,"
-                         "name VARCHAR(255), "
-                         "cost INT,"
-                         "ship_id INT,"
-                         "initiative INT,"
-                         "xws VARCHAR(255))")
+    input_cursor.execute("CREATE TABLE players ("
+                         "player_id INT AUTO_INCREMENT PRIMARY KEY, "
+                         "tournament_id INT,"
+                         "faction INT, "
+                         "points INT, "
+                         "swiss_standing INT, "
+                         "cut_standing INT,"
+                         "FOREIGN KEY(tournament_id) REFERENCES tournaments(tournament_id),"
+                         "FOREIGN KEY(faction) REFERENCES ref_faction(faction_id))")
 
-    input_cursor.execute("DROP TABLE IF EXISTS ref_upgrade")
-    input_cursor.execute("CREATE TABLE ref_upgrade ("
-                         "upgrade_id INT AUTO_INCREMENT PRIMARY KEY,"
-                         "name VARCHAR(255), "
-                         "cost INT,"
-                         "xws VARCHAR(255))")
+    input_cursor.execute("CREATE TABLE pilots ("
+                         "pilot_id INT AUTO_INCREMENT PRIMARY KEY, "
+                         "player_id INT,"
+                         "points INT,"
+                         "ref_pilot_id INT,"
+                         "FOREIGN KEY(player_id) REFERENCES players(player_id),"
+                         "FOREIGN KEY(ref_pilot_id) REFERENCES ref_pilot(ref_pilot_id))")
+
+    input_cursor.execute("CREATE TABLE upgrades ("
+                         "upgrade_id INT AUTO_INCREMENT PRIMARY KEY, "
+                         "pilot_id INT,"
+                         "ref_upgrade_id INT,"
+                         "FOREIGN KEY(pilot_id) REFERENCES pilots(pilot_id),"
+                         "FOREIGN KEY(ref_upgrade_id) REFERENCES ref_upgrade(ref_upgrade_id))")
+
+    input_cursor.execute("CREATE TABLE matches ("
+                         "match_id INT AUTO_INCREMENT PRIMARY KEY,"
+                         "winner_id INT,"
+                         "type INT,"
+                         "date DATE,"
+                         "FOREIGN KEY(winner_id) REFERENCES players(player_id))")
+
+    input_cursor.execute("CREATE TABLE matches_players ("
+                         "entry_id INT AUTO_INCREMENT PRIMARY KEY,"
+                         "match_id INT,"
+                         "player_id INT,"
+                         "player_points INT,"
+                         "FOREIGN KEY(player_id) REFERENCES players(player_id),"
+                         "FOREIGN KEY(match_id) REFERENCES matches(match_id))")
 
 
 def get_ref_data():
@@ -151,9 +169,6 @@ def get_ref_data():
     for pilot in pilots.items():
         pilot = pilot[1]
         all_ref_pilots.append(pilot)
-    sql = "INSERT INTO ref_pilot (name, xws, cost, initiative, ship_id, pilot_id) " \
-          " VALUES (%s, %s, %s, %s, %s, %s) "
-    cursor.executemany(sql, all_ref_pilots)
 
     all_ref_ships = []
     for ship in ships.items():
@@ -163,11 +178,15 @@ def get_ref_data():
           " VALUES (%s, %s) "
     cursor.executemany(sql, all_ref_ships)
 
+    sql = "INSERT INTO ref_pilot (name, xws, cost, initiative, ship_id, ref_pilot_id) " \
+          " VALUES (%s, %s, %s, %s, %s, %s) "
+    cursor.executemany(sql, all_ref_pilots)
+
     all_ref_upgrades = []
     for upgrade in upgrades.items():
         upgrade = upgrade[1]
         all_ref_upgrades.append(upgrade)
-    sql = "INSERT INTO ref_upgrade (name, xws, cost, upgrade_id) " \
+    sql = "INSERT INTO ref_upgrade (name, xws, cost, ref_upgrade_id) " \
           " VALUES (%s, %s, %s, %s) "
     cursor.executemany(sql, all_ref_upgrades)
 
@@ -178,14 +197,15 @@ def get_ref_data():
                 (4, "Resistance", "resistance"),
                 (5, "First Order", "firstorder"),
                 (6, "Galactic Republic", "galacticrepublic"),
-                (7, "Separatist Alliance", "separatistalliance")]
+                (7, "Separatist Alliance", "separatistalliance"),
+                (8, "Unknown", "unknown")]
     cursor.executemany(faction_sql, factions_values)
 
     factions = {
     }
 
     for faction_value in factions_values:
-        factions[faction_value[2]] = factions_values[0]
+        factions[faction_value[2]] = faction_value[0]
     return ships, pilots, upgrades, factions
 
 
@@ -196,58 +216,68 @@ def update_tables(pilots, upgrades, factions, filename):
         all_upgrades = []
         all_matches = []
         all_players = []
+        all_players_matches = []
+        all_tournaments = []
         pilot_id = 0
         for tournament in data:
-            # Insert Players
+            # Get Tournaments
+            tournament_id = tournament['id']
+            tournament_player_count = len(tournament['participants'])
+            tournament_format = tournament['format_id']
+            all_tournaments.append((tournament_id, tournament_player_count, tournament_format))
+
+            # Get Players
             for player in tournament['participants']:
                 if player['list_json'] is not None:
                     try:
                         player_list = json.loads(player['list_json'])
                     except ValueError as e:
-                        continue
-                    if 'points' in player_list and player_list['points'] is not None and player_list['points'] is not 0:
-                        player_id = player['id']
-                        faction = factions[player_list['faction']][0]
-                        points = player_list['points']
-                        event_players = len(tournament['participants'])
-                        event_format = tournament['format_id']
-                        swiss_standing = player['swiss_rank']
-                        cut_standing = player['top_cut_rank']
+                        pass
+                if 'points' in player_list and player_list['points'] is not None and player_list['points'] is not 0\
+                        and isinstance(player_list['points'], int):
+                    points = player_list['points']
+                else:
+                    points = None
+                player_id = player['id']
+                if 'faction' in player_list:
+                    faction = factions[player_list['faction']]
+                else:
+                    faction = 8
+                swiss_standing = player['swiss_rank']
+                cut_standing = player['top_cut_rank']
 
-                        sql = "INSERT INTO players (player_id, faction, points, event_players, event_format, " \
-                              "swiss_standing, cut_standing) VALUES (%s, %s, %s, %s, %s, %s, %s) "
-                        values = (player_id, faction, points, event_players, event_format, swiss_standing, cut_standing)
-                        if isinstance(points, int):
-                            cursor.execute(sql, values)
-                        else:
-                            print(str(player_id) + " " + points)
-                            continue
+                values = (player_id, tournament_id, faction, points, swiss_standing, cut_standing)
+                all_players.append(values)
 
-                        # Insert Pilots
-                        for pilot in player_list['pilots']:
+                # Insert Pilots
+                if 'pilots' in player_list:
+                    for pilot in player_list['pilots']:
+                        if 'id' in pilot:
                             xws = pilot['id']
-                            xws = clean_pilot_xws(xws)
-                            ref_pilot_id = pilots[xws][5]
-                            if 'points' in pilot:
-                                points = pilot['points']
-                            else:
-                                points = 201
-                            pilot_id = pilot_id + 1
-                            current_pilot = (player_id, ref_pilot_id, points)
-                            all_pilots.append(current_pilot)
+                        else:
+                            xws = pilot['name']
+                        xws = clean_pilot_xws(xws)
+                        ref_pilot_id = pilots[xws][5]
+                        if 'points' in pilot and isinstance(pilot['points'], int):
+                            points = pilot['points']
+                        else:
+                            points = None
+                        pilot_id = pilot_id + 1
+                        current_pilot = (player_id, ref_pilot_id, points)
+                        all_pilots.append(current_pilot)
 
-                            if 'upgrades' in pilot and len(pilot['upgrades']) > 0:
-                                # Insert Upgrade
-                                pilot_upgrades = pilot['upgrades'].items()
-                                for key, value in pilot_upgrades:
-                                    upgrade_list = value
-                                    for upgrade in upgrade_list:
-                                        upgrade = clean_upgrade_xws(upgrade)
-                                        if upgrade == "skip":
-                                            continue
-                                        upgrade_id = upgrades[upgrade][3]
-                                        current_upgrade = (pilot_id, upgrade_id)
-                                        all_upgrades.append(current_upgrade)
+                        if 'upgrades' in pilot and len(pilot['upgrades']) > 0:
+                            # Insert Upgrade
+                            pilot_upgrades = pilot['upgrades'].items()
+                            for key, value in pilot_upgrades:
+                                upgrade_list = value
+                                for upgrade in upgrade_list:
+                                    upgrade = clean_upgrade_xws(upgrade)
+                                    if upgrade == "skip":
+                                        continue
+                                    upgrade_id = upgrades[upgrade][3]
+                                    current_upgrade = (pilot_id, upgrade_id)
+                                    all_upgrades.append(current_upgrade)
             # Insert all matches
 
             for rounds in tournament['rounds']:
@@ -262,24 +292,31 @@ def update_tables(pilots, upgrades, factions, filename):
                     player1_id = match['player1_id']
                     player1_points = match['player1_points']
                     current_player = (match_id, player1_id, player1_points)
-                    all_players.append(current_player)
+                    all_players_matches.append(current_player)
 
                     player2_id = match['player2_id']
                     player2_points = match['player2_points']
                     current_player = (match_id, player2_id, player2_points)
-                    all_players.append(current_player)
+                    all_players_matches.append(current_player)
+
+        sql = "INSERT INTO tournaments (tournament_id, players, format) VALUES (%s, %s, %s) "
+        cursor.executemany(sql, all_tournaments)
+
+        sql = "INSERT INTO players (player_id, tournament_id, faction, points,  swiss_standing, cut_standing) " \
+              "VALUES (%s, %s, %s, %s, %s, %s) "
+        cursor.executemany(sql, all_players)
 
         sql = "INSERT INTO matches (match_id, winner_id, type, date) VALUES (%s, %s, %s, %s) "
         cursor.executemany(sql, all_matches)
 
         player_sql = "INSERT INTO matches_players (match_id, player_id, player_points) VALUES (%s, %s, %s)"
-        cursor.executemany(player_sql, all_players)
-
-        sql = "INSERT INTO upgrades (pilot_id, ref_upgrade_id) VALUES (%s, %s) "
-        cursor.executemany(sql, all_upgrades)
+        cursor.executemany(player_sql, all_players_matches)
 
         sql = "INSERT INTO pilots (player_id, ref_pilot_id, points) VALUES (%s, %s, %s) "
         cursor.executemany(sql, all_pilots)
+
+        sql = "INSERT INTO upgrades (pilot_id, ref_upgrade_id) VALUES (%s, %s) "
+        cursor.executemany(sql, all_upgrades)
 
 
 database = mysql.connector.connect(
