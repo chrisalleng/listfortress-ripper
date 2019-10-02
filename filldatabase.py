@@ -1,6 +1,7 @@
 import json
 import mysql.connector
 import requests
+import config
 
 
 def clean_pilot_xws(pilot_xws):
@@ -320,10 +321,10 @@ def update_tables(pilots, upgrades, factions, filename):
 
 
 database = mysql.connector.connect(
-    host="xwing.gateofstorms.net",
-    user="brunas",
-    password="scpLVgtx",
-    database="listfortress",
+    host=config.hostname,
+    user=config.username,
+    password=config.password,
+    database=config.database,
     auth_plugin='mysql_native_password'
 )
 cursor = database.cursor()
