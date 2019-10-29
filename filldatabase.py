@@ -244,12 +244,20 @@ def update_tables(pilots, upgrades, factions, filename):
         all_tournaments = []
         pilot_id = 0
         for tournament in data:
-            # Get Tournaments
-            date = tournament['date']
+            # Filter out sparse events
+            tournament_player_count = len(tournament['participants'])
             tournament_id = tournament['id']
             if tournament_id == 1206 or tournament_id == 1193:
                 continue
-            tournament_player_count = len(tournament['participants'])
+            players_with_lists = 0
+            for player in tournament['participants']:
+                if player['list_json'] is not None:
+                    players_with_lists += 1
+            if tournament_player_count == 0 or tournament_player_count < 25 or \
+                    players_with_lists / tournament_player_count < .8:
+                continue
+            # Get Tournaments
+            date = tournament['date']
             tournament_format = tournament['format_id']
             all_tournaments.append((tournament_id, tournament_player_count, date, tournament_format))
 
@@ -308,9 +316,10 @@ def update_tables(pilots, upgrades, factions, filename):
                                     current_upgrade = (pilot_id, upgrade_id)
                                     all_upgrades.append(current_upgrade)
             # Insert all matches
-
             for rounds in tournament['rounds']:
                 for match in rounds['matches']:
+                    if match['result'] == 'bye' or match['winner_id'] == "null" or match['result'] == 'tie':
+                        continue
                     match_id = match['id']
                     winner_id = match['winner_id']
                     match_type = rounds['roundtype_id']
