@@ -51,24 +51,31 @@ def clear_tables(input_cursor):
                          "ship_id INT AUTO_INCREMENT PRIMARY KEY,"
                          "ship_name VARCHAR(255))")
 
+    input_cursor.execute("CREATE TABLE ref_faction ("
+                         "faction_id INT AUTO_INCREMENT PRIMARY KEY,"
+                         "name VARCHAR(255), "
+                         "icon_url VARCHAR(255), "
+                         "xws VARCHAR(255))")
+
     input_cursor.execute("CREATE TABLE ref_pilot ("
                          "ref_pilot_id INT AUTO_INCREMENT PRIMARY KEY,"
                          "ship_id INT,"
+                         "faction_id INT,"
                          "name VARCHAR(255), "
                          "cost INT,"
                          "initiative INT,"
                          "xws VARCHAR(255),"
+                         "art_url VARCHAR(255),"
+                         "card_url VARCHAR(255),"
+                         "FOREIGN KEY(faction_id) REFERENCES ref_faction(faction_id),"
                          "FOREIGN KEY(ship_id) REFERENCES ref_ship(ship_id))")
 
     input_cursor.execute("CREATE TABLE ref_upgrade ("
                          "ref_upgrade_id INT AUTO_INCREMENT PRIMARY KEY,"
                          "name VARCHAR(255), "
+                         "art_url VARCHAR(255), "
+                         "card_url VARCHAR(255), "
                          "cost INT,"
-                         "xws VARCHAR(255))")
-
-    input_cursor.execute("CREATE TABLE ref_faction ("
-                         "faction_id INT AUTO_INCREMENT PRIMARY KEY,"
-                         "name VARCHAR(255), "
                          "xws VARCHAR(255))")
 
     input_cursor.execute("CREATE TABLE tournaments ("
@@ -133,6 +140,18 @@ def get_ref_data():
     pilot_id = 0
     upgrade_id = 0
 
+    faction_sql = "INSERT INTO ref_faction (faction_id, name, xws, icon_url) VALUES (%s, %s, %s, %s)"
+    factions_values = [
+        (1, "Rebel Alliance", "rebelalliance", "https://sb-cdn.fantasyflightgames.com/factions/Rebel.png"),
+        (2, "Galactic Empire", "galacticempire", "https://sb-cdn.fantasyflightgames.com/factions/Imperial.png"),
+        (3, "Scum and Villainy", "scumandvillainy", "https://sb-cdn.fantasyflightgames.com/factions/Scum.png"),
+        (4, "Resistance", "resistance", "https://sb-cdn.fantasyflightgames.com/factions/ResistanceIcon.png"),
+        (5, "First Order", "firstorder", "https://sb-cdn.fantasyflightgames.com/factions/FirstOrderIcon.png"),
+        (6, "Galactic Republic", "galacticrepublic", "https://sb-cdn.fantasyflightgames.com/factions/RepublicIcon.png"),
+        (7, "Separatist Alliance", "separatistalliance",
+         "https://sb-cdn.fantasyflightgames.com/factions/SeparatistIcon.png"),
+        (8, "Unknown", "unknown", "unknown")]
+
     for parsed_pilot in parsed_pilots:
         pilot_name = parsed_pilot['name']
         pilot_xws = parsed_pilot['xws']
@@ -143,14 +162,27 @@ def get_ref_data():
         pilot_initiative = parsed_pilot['initiative']
         ship = parsed_pilot['ship']
 
+        pilot_faction = parsed_pilot['faction']
+
+        for faction in factions_values:
+            if faction[1] == pilot_faction:
+                pilot_faction = faction[0]
+
+        pilot_art = parsed_pilot['cardart']
+        pilot_card = parsed_pilot['cardimg']
+
         if ship not in ships:
             ships[ship] = (ship, len(ships) + 1)
-        pilots[pilot_xws] = (pilot_name, pilot_xws, pilot_cost, pilot_initiative, ships[ship][1], pilot_id)
+        pilots[pilot_xws] = (
+        pilot_name, pilot_xws, pilot_cost, pilot_initiative, ships[ship][1], pilot_id, pilot_faction, pilot_art,
+        pilot_card)
 
     for parsed_upgrade in parsed_upgrades:
         upgrade_name = parsed_upgrade['name']
         upgrade_xws = parsed_upgrade['xws']
         upgrade_id = upgrade_id + 1
+        upgrade_art = parsed_upgrade['side'][0]['cardart']
+        upgrade_card = parsed_upgrade['side'][0]['cardimg']
         if 'cost' in parsed_upgrade:
             if parsed_upgrade['cost']['variable'] == "None":
                 upgrade_cost = parsed_upgrade['cost']['value']
@@ -165,7 +197,7 @@ def get_ref_data():
         else:
             upgrade_cost = 0
 
-        upgrades[upgrade_xws] = (upgrade_name, upgrade_xws, upgrade_cost, upgrade_id)
+        upgrades[upgrade_xws] = (upgrade_name, upgrade_xws, upgrade_cost, upgrade_id, upgrade_art, upgrade_card)
     all_ref_pilots = []
     for pilot in pilots.items():
         pilot = pilot[1]
@@ -179,28 +211,19 @@ def get_ref_data():
           " VALUES (%s, %s) "
     cursor.executemany(sql, all_ref_ships)
 
-    sql = "INSERT INTO ref_pilot (name, xws, cost, initiative, ship_id, ref_pilot_id) " \
-          " VALUES (%s, %s, %s, %s, %s, %s) "
+    cursor.executemany(faction_sql, factions_values)
+
+    sql = "INSERT INTO ref_pilot (name, xws, cost, initiative, ship_id, ref_pilot_id, faction_id, art_url, card_url) " \
+          " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
     cursor.executemany(sql, all_ref_pilots)
 
     all_ref_upgrades = []
     for upgrade in upgrades.items():
         upgrade = upgrade[1]
         all_ref_upgrades.append(upgrade)
-    sql = "INSERT INTO ref_upgrade (name, xws, cost, ref_upgrade_id) " \
-          " VALUES (%s, %s, %s, %s) "
+    sql = "INSERT INTO ref_upgrade (name, xws, cost, ref_upgrade_id, art_url, card_url) " \
+          " VALUES (%s, %s, %s, %s, %s, %s) "
     cursor.executemany(sql, all_ref_upgrades)
-
-    faction_sql = "INSERT INTO ref_faction (faction_id, name, xws) VALUES (%s, %s, %s)"
-    factions_values = [(1, "Rebel Alliance", "rebelalliance"),
-                (2, "Galactic Empire", "galacticempire"),
-                (3, "Scum And Villainy", "scumandvillainy"),
-                (4, "Resistance", "resistance"),
-                (5, "First Order", "firstorder"),
-                (6, "Galactic Republic", "galacticrepublic"),
-                (7, "Separatist Alliance", "separatistalliance"),
-                (8, "Unknown", "unknown")]
-    cursor.executemany(faction_sql, factions_values)
 
     factions = {
     }
@@ -224,6 +247,8 @@ def update_tables(pilots, upgrades, factions, filename):
             # Get Tournaments
             date = tournament['date']
             tournament_id = tournament['id']
+            if tournament_id == 1206 or tournament_id == 1193:
+                continue
             tournament_player_count = len(tournament['participants'])
             tournament_format = tournament['format_id']
             all_tournaments.append((tournament_id, tournament_player_count, date, tournament_format))
@@ -235,7 +260,7 @@ def update_tables(pilots, upgrades, factions, filename):
                         player_list = json.loads(player['list_json'])
                     except ValueError as e:
                         pass
-                if 'points' in player_list and player_list['points'] is not None and player_list['points'] is not 0\
+                if 'points' in player_list and player_list['points'] is not None and player_list['points'] is not 0 \
                         and isinstance(player_list['points'], int):
                     points = player_list['points']
                 else:
@@ -246,6 +271,8 @@ def update_tables(pilots, upgrades, factions, filename):
                 else:
                     faction = 8
                 swiss_standing = player['swiss_rank']
+                if swiss_standing == 0:
+                    swiss_standing = tournament_player_count
                 cut_standing = player['top_cut_rank']
 
                 values = (player_id, tournament_id, faction, points, swiss_standing, cut_standing)
