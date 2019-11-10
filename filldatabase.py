@@ -45,6 +45,7 @@ def clear_tables(input_cursor):
     input_cursor.execute("DROP TABLE IF EXISTS ref_pilot")
     input_cursor.execute("DROP TABLE IF EXISTS ref_ship")
     input_cursor.execute("DROP TABLE IF EXISTS ref_upgrade")
+    input_cursor.execute("DROP TABLE IF EXISTS ref_upgrade_type")
     input_cursor.execute("DROP TABLE IF EXISTS ref_faction")
 
     input_cursor.execute("CREATE TABLE ref_ship ("
@@ -56,6 +57,10 @@ def clear_tables(input_cursor):
                          "name VARCHAR(255), "
                          "icon_url VARCHAR(255), "
                          "xws VARCHAR(255))")
+
+    input_cursor.execute("CREATE TABLE ref_upgrade_type ("
+                         "upgrade_type_id INT AUTO_INCREMENT PRIMARY KEY,"
+                         "name VARCHAR(255))")
 
     input_cursor.execute("CREATE TABLE ref_pilot ("
                          "ref_pilot_id INT AUTO_INCREMENT PRIMARY KEY,"
@@ -72,11 +77,13 @@ def clear_tables(input_cursor):
 
     input_cursor.execute("CREATE TABLE ref_upgrade ("
                          "ref_upgrade_id INT AUTO_INCREMENT PRIMARY KEY,"
+                         "upgrade_type_id INT,"
                          "name VARCHAR(255), "
                          "art_url VARCHAR(255), "
                          "card_url VARCHAR(255), "
                          "cost INT,"
-                         "xws VARCHAR(255))")
+                         "xws VARCHAR(255),"
+                         "FOREIGN KEY(upgrade_type_id) REFERENCES ref_upgrade_type(upgrade_type_id))")
 
     input_cursor.execute("CREATE TABLE tournaments ("
                          "tournament_id INT AUTO_INCREMENT PRIMARY KEY,"
@@ -177,7 +184,13 @@ def get_ref_data():
         pilot_name, pilot_xws, pilot_cost, pilot_initiative, ships[ship][1], pilot_id, pilot_faction, pilot_art,
         pilot_card)
 
+    ref_upgrade_types = [];
+
     for parsed_upgrade in parsed_upgrades:
+        upgrade_type = parsed_upgrade['side'][0]['type']
+        if upgrade_type not in ref_upgrade_types:
+            ref_upgrade_types.append(upgrade_type)
+        upgrade_type_id = ref_upgrade_types.index(upgrade_type) + 1
         upgrade_name = parsed_upgrade['name']
         upgrade_xws = parsed_upgrade['xws']
         upgrade_id = upgrade_id + 1
@@ -197,7 +210,7 @@ def get_ref_data():
         else:
             upgrade_cost = 0
 
-        upgrades[upgrade_xws] = (upgrade_name, upgrade_xws, upgrade_cost, upgrade_id, upgrade_art, upgrade_card)
+        upgrades[upgrade_xws] = (upgrade_name, upgrade_type_id, upgrade_xws, upgrade_cost, upgrade_id, upgrade_art, upgrade_card)
     all_ref_pilots = []
     for pilot in pilots.items():
         pilot = pilot[1]
@@ -217,12 +230,20 @@ def get_ref_data():
           " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
     cursor.executemany(sql, all_ref_pilots)
 
+    upgrade_types_with_id = []
+    for upgrade_type in ref_upgrade_types:
+        upgrade_types_with_id.append([ref_upgrade_types.index(upgrade_type) + 1, upgrade_type])
+
+    sql = "INSERT INTO ref_upgrade_type (upgrade_type_id, name) VALUES (%s, %s)"
+    cursor.executemany(sql, upgrade_types_with_id)
+
     all_ref_upgrades = []
     for upgrade in upgrades.items():
         upgrade = upgrade[1]
         all_ref_upgrades.append(upgrade)
-    sql = "INSERT INTO ref_upgrade (name, xws, cost, ref_upgrade_id, art_url, card_url) " \
-          " VALUES (%s, %s, %s, %s, %s, %s) "
+
+    sql = "INSERT INTO ref_upgrade (name, upgrade_type_id, xws, cost, ref_upgrade_id, art_url, card_url) " \
+          " VALUES (%s, %s, %s, %s, %s, %s, %s) "
     cursor.executemany(sql, all_ref_upgrades)
 
     factions = {
@@ -251,10 +272,10 @@ def update_tables(pilots, upgrades, factions, filename):
                 continue
             players_with_lists = 0
             for player in tournament['participants']:
-                if player['list_json'] is not None:
+                if player['list_json'] is not None and player['list_json'].strip():
                     players_with_lists += 1
-            if tournament_player_count == 0 or tournament_player_count < 25 or \
-                    players_with_lists / tournament_player_count < .8:
+            if tournament_player_count == 0 or tournament_player_count < 20 or \
+                    players_with_lists / tournament_player_count < .65:
                 continue
             # Get Tournaments
             date = tournament['date']
@@ -312,13 +333,13 @@ def update_tables(pilots, upgrades, factions, filename):
                                     upgrade = clean_upgrade_xws(upgrade)
                                     if upgrade == "skip":
                                         continue
-                                    upgrade_id = upgrades[upgrade][3]
+                                    upgrade_id = upgrades[upgrade][4]
                                     current_upgrade = (pilot_id, upgrade_id)
                                     all_upgrades.append(current_upgrade)
             # Insert all matches
             for rounds in tournament['rounds']:
                 for match in rounds['matches']:
-                    if match['result'] == 'bye' or match['winner_id'] == "null" or match['result'] == 'tie':
+                    if match['result'] == 'bye' or match['winner_id'] is None or match['result'] == 'tie':
                         continue
                     match_id = match['id']
                     winner_id = match['winner_id']
