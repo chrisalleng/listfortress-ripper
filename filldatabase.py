@@ -284,6 +284,7 @@ def update_tables(pilots, upgrades, factions, filename):
 
             # Get Players
             for player in tournament['participants']:
+                player_list = {}
                 if player['list_json'] is not None:
                     try:
                         player_list = json.loads(player['list_json'])
