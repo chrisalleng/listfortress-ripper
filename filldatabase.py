@@ -280,83 +280,84 @@ def update_tables(pilots, upgrades, factions, filename):
             # Get Tournaments
             date = tournament['date']
             tournament_format = tournament['format_id']
-            all_tournaments.append((tournament_id, tournament_player_count, date, tournament_format))
+            if tournament_format == 34:
+                all_tournaments.append((tournament_id, tournament_player_count, date, tournament_format))
 
-            # Get Players
-            for player in tournament['participants']:
-                player_list = {}
-                if player['list_json'] is not None:
-                    try:
-                        player_list = json.loads(player['list_json'])
-                    except ValueError as e:
-                        pass
-                if 'points' in player_list and player_list['points'] is not None and player_list['points'] is not 0 \
-                        and isinstance(player_list['points'], int):
-                    points = player_list['points']
-                else:
-                    points = None
-                player_id = player['id']
-                if 'faction' in player_list:
-                    faction = factions[player_list['faction']]
-                else:
-                    faction = 8
-                swiss_standing = player['swiss_rank']
-                if swiss_standing == 0:
-                    swiss_standing = tournament_player_count
-                cut_standing = player['top_cut_rank']
+                # Get Players
+                for player in tournament['participants']:
+                    player_list = {}
+                    if player['list_json'] is not None:
+                        try:
+                            player_list = json.loads(player['list_json'])
+                        except ValueError as e:
+                            pass
+                    if 'points' in player_list and player_list['points'] is not None and player_list['points'] is not 0 \
+                            and isinstance(player_list['points'], int):
+                        points = player_list['points']
+                    else:
+                        points = None
+                    player_id = player['id']
+                    if 'faction' in player_list:
+                        faction = factions[player_list['faction']]
+                    else:
+                        faction = 8
+                    swiss_standing = player['swiss_rank']
+                    if swiss_standing == 0:
+                        swiss_standing = tournament_player_count
+                    cut_standing = player['top_cut_rank']
 
-                values = (player_id, tournament_id, faction, points, swiss_standing, cut_standing)
-                all_players.append(values)
+                    values = (player_id, tournament_id, faction, points, swiss_standing, cut_standing)
+                    all_players.append(values)
 
-                # Insert Pilots
-                if 'pilots' in player_list:
-                    for pilot in player_list['pilots']:
-                        if 'id' in pilot:
-                            xws = pilot['id']
-                        else:
-                            xws = pilot['name']
-                        xws = clean_pilot_xws(xws)
-                        ref_pilot_id = pilots[xws][5]
-                        if 'points' in pilot and isinstance(pilot['points'], int):
-                            points = pilot['points']
-                        else:
-                            points = None
-                        pilot_id = pilot_id + 1
-                        current_pilot = (player_id, ref_pilot_id, points)
-                        all_pilots.append(current_pilot)
+                    # Insert Pilots
+                    if 'pilots' in player_list:
+                        for pilot in player_list['pilots']:
+                            if 'id' in pilot:
+                                xws = pilot['id']
+                            else:
+                                xws = pilot['name']
+                            xws = clean_pilot_xws(xws)
+                            ref_pilot_id = pilots[xws][5]
+                            if 'points' in pilot and isinstance(pilot['points'], int):
+                                points = pilot['points']
+                            else:
+                                points = None
+                            pilot_id = pilot_id + 1
+                            current_pilot = (player_id, ref_pilot_id, points)
+                            all_pilots.append(current_pilot)
 
-                        if 'upgrades' in pilot and len(pilot['upgrades']) > 0:
-                            # Insert Upgrade
-                            pilot_upgrades = pilot['upgrades'].items()
-                            for key, value in pilot_upgrades:
-                                upgrade_list = value
-                                for upgrade in upgrade_list:
-                                    upgrade = clean_upgrade_xws(upgrade)
-                                    if upgrade == "skip":
-                                        continue
-                                    upgrade_id = upgrades[upgrade][4]
-                                    current_upgrade = (pilot_id, upgrade_id)
-                                    all_upgrades.append(current_upgrade)
-            # Insert all matches
-            for rounds in tournament['rounds']:
-                for match in rounds['matches']:
-                    if match['result'] == 'bye' or match['winner_id'] is None or match['result'] == 'tie':
-                        continue
-                    match_id = match['id']
-                    winner_id = match['winner_id']
-                    match_type = rounds['roundtype_id']
-                    current_match = (match_id, winner_id, match_type)
-                    all_matches.append(current_match)
+                            if 'upgrades' in pilot and len(pilot['upgrades']) > 0:
+                                # Insert Upgrade
+                                pilot_upgrades = pilot['upgrades'].items()
+                                for key, value in pilot_upgrades:
+                                    upgrade_list = value
+                                    for upgrade in upgrade_list:
+                                        upgrade = clean_upgrade_xws(upgrade)
+                                        if upgrade == "skip":
+                                            continue
+                                        upgrade_id = upgrades[upgrade][4]
+                                        current_upgrade = (pilot_id, upgrade_id)
+                                        all_upgrades.append(current_upgrade)
+                # Insert all matches
+                for rounds in tournament['rounds']:
+                    for match in rounds['matches']:
+                        if match['result'] == 'bye' or match['winner_id'] is None or match['result'] == 'tie':
+                            continue
+                        match_id = match['id']
+                        winner_id = match['winner_id']
+                        match_type = rounds['roundtype_id']
+                        current_match = (match_id, winner_id, match_type)
+                        all_matches.append(current_match)
 
-                    player1_id = match['player1_id']
-                    player1_points = match['player1_points']
-                    current_player = (match_id, player1_id, player1_points)
-                    all_players_matches.append(current_player)
+                        player1_id = match['player1_id']
+                        player1_points = match['player1_points']
+                        current_player = (match_id, player1_id, player1_points)
+                        all_players_matches.append(current_player)
 
-                    player2_id = match['player2_id']
-                    player2_points = match['player2_points']
-                    current_player = (match_id, player2_id, player2_points)
-                    all_players_matches.append(current_player)
+                        player2_id = match['player2_id']
+                        player2_points = match['player2_points']
+                        current_player = (match_id, player2_id, player2_points)
+                        all_players_matches.append(current_player)
 
         sql = "INSERT INTO tournaments (tournament_id, players, date, format) VALUES (%s, %s, %s, %s) "
         cursor.executemany(sql, all_tournaments)
